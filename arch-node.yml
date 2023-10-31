@@ -83,6 +83,7 @@
           - inetutils
           - iproute2
           - iputils
+          - ipv6calc
           - net-tools
           - nicstat
           - iperf
@@ -188,6 +189,52 @@
         dest: /etc/hosts
 - become: true
   hosts: all
+  name: setup rdma
+  tasks:
+    - name: install rdma packages
+      become_user: maintenance
+      kewlfft.aur.aur:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - - dapl
+          - ibdump
+          - ibutils
+          - qperf
+          - rdma-core
+    - name: generate /etc/modules-load.d/rdma.conf
+      template:
+        src: etc/modules-load.d/rdma.conf.j2
+        dest: /etc/modules-load.d/rdma.conf
+    - name: modprobe rxe related
+      community.general.modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - ib_core
+        - ib_umad
+        - rdma_rxe
+    - name: copy /usr/bin/rxe-up
+      template:
+        src: usr/bin/rxe-up.j2
+        dest: /usr/bin/rxe-up
+        mode: 0755
+    - name: generate /usr/lib/systemd/system/rxe.service
+      template:
+        src: usr/lib/systemd/system/rxe.service.j2
+        dest: /usr/lib/systemd/system/rxe.service
+    - name: generate /etc/security/rxe.conf
+      template:
+        src: etc/security/limits.conf.j2
+        dest: /etc/security/limits.conf
+    - name: systemd enable rxe.service
+      systemd:
+        name: rxe.service
+        daemon_reload: true
+        enabled: true
+        state: restarted
+- become: true
+  hosts: all
   name: security
   tasks:
     - name: install fail2ban
@@ -285,7 +332,7 @@
       mount:
         fstype: nfs
         name: "/nfs/{{ item }}"
-        opts: "nfsvers=4,ac,async,bg,lookupcache=pos,max_connect=16,nconnect=16,_netdev,noauto,nofail,proto=tcp,timeo=300,rsize=1048576,sharecache,wsize=1048576,x-systemd.automount,x-systemd.mount-timeout=10"
+        opts: "nfsvers=4,ac,async,bg,lookupcache=pos,max_connect=16,nconnect=16,_netdev,noauto,nofail,proto=rdma,timeo=300,rsize=1048576,sharecache,wsize=1048576,x-systemd.automount,x-systemd.mount-timeout=10"
         src: "{{ item }}:/brick"
         state: mounted
       loop: "{{ groups['nfs_server'] }}"

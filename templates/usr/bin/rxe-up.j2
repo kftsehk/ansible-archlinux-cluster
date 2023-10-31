@@ -1,0 +1,10 @@
+#!/bin/env bash
+
+# This script is called by systemd service rdma.service
+RXEDEV=rxe0
+NETDEV=$(ip addr | grep 192.168 -B 2 | head -n 1 | cut -d : -f 2 | xargs)
+MACADDR=$(cat /sys/class/net/${NETDEV}/address)
+ibstat | grep $RXEDEV || rdma link add $RXEDEV type rxe netdev $NETDEV
+IPV6=$(ipv6calc -A prefixmac2ipv6 --in prefix+mac fe80:: $MACADDR --out ipv6addr)
+ip addr | grep $IPV6 || ip addr add dev $NETDEV ${IPV6}/64
+exit 0

@@ -1,0 +1,11 @@
+[Unit]
+Description=RoCE Config
+Documentation=man:rdma(8)
+DefaultDependencies=no
+Wants=network-online.target
+After=local-fs.target
+Before=nfs-server.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rxe-up
