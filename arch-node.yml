@@ -14,6 +14,7 @@
           - arch-install-scripts
           - base
           - base-devel
+          - dhcpcd
           - git
           - intel-ucode
           - pacman-contrib
