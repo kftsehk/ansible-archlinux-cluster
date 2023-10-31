@@ -403,11 +403,14 @@
           - docker-buildx
           - docker-compose
         state: latest 
-    - name: systemd enable docker.sock
+    - name: systemd enable docker service
       systemd:
-        name: docker
+        name: "{{ item }}"
         enabled: true
         state: restarted
+      loop:
+        - docker.socket
+        - docker.service
 - become: true
   hosts: nvidia
   name: setup for nvidia gpu
