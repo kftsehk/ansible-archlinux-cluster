@@ -251,7 +251,11 @@
           zfs set sharenfs=on brick
           zfs set special_small_blocks=1M brick
           zfs set xattr=sa brick
-    - name: enable zfs services
+    - name: generate /etc/nfs.conf
+      template:
+        src: etc/nfs.conf.j2
+        dest: /etc/nfs.conf
+    - name: enable zfs / nfs services
       systemd:
         daemon_reload: true
         name: "{{ item }}"
@@ -262,22 +266,26 @@
         - zfs-mount.service
         - zfs-scrub-monthly@brick.timer
         - zfs-share.service
+        - polkit.service
+        - nfs-utils.service
         - nfs-server.service
         - nfsdcld.service
 - become: true
   hosts: nfs_client
   name: nfs client
   tasks:
-    - name: install nfs utils
+    - name: install nfs client utils
       become_user: maintenance
       kewlfft.aur.aur:
-        name: core/nfs-utils
+        name: "{{ item }}"
         state: latest
+      loop:
+        - nfs-utils
     - name: create nfs mounts
       mount:
         fstype: nfs
         name: "/nfs/{{ item }}"
-        opts: "nfsvers=4,ac,async,bg,lookupcache=pos,max_connect=16,nconnect=16,_netdev,noauto,nofail,timeo=300,rsize=1048576,sharecache,wsize=1048576,x-systemd.automount,x-systemd.mount-timeout=10"
+        opts: "nfsvers=4,ac,async,bg,lookupcache=pos,max_connect=16,nconnect=16,_netdev,noauto,nofail,proto=tcp,timeo=300,rsize=1048576,sharecache,wsize=1048576,x-systemd.automount,x-systemd.mount-timeout=10"
         src: "{{ item }}:/brick"
         state: mounted
       loop: "{{ groups['nfs_server'] }}"
@@ -287,6 +295,14 @@
         path: "/home"
         src: "/nfs/node4"
         state: link
+    - name: enable nfs client services
+      systemd:
+        daemon_reload: true
+        name: "{{ item }}"
+        enabled: true
+        state: restarted
+      loop:
+        - nfs-utils.service
 - become: true
   hosts: compute
   name: setup compute
