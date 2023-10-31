@@ -350,6 +350,7 @@
           - git-lfs
           - github-cli
           - aur/git-completion
+        - - intel-oneapi-basekit
         - - aur/miniconda3
         - - nodejs
           - aur/nvm
