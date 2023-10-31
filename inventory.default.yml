@@ -1,0 +1,23 @@
+all:
+  hosts:
+    storage1:
+      ansible_host: 10.0.0.1
+    node1:
+      ansible_host: 10.0.0.11
+  children:
+    nfs_server:
+      hosts:
+      children:
+        zfs:
+          hosts:
+            storage1:
+    nfs_client:
+      hosts:
+        node1:
+    compute:
+      children:
+        gpu:
+          children:
+            nvidia:
+              hosts:
+                node1:

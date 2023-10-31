@@ -1,0 +1,452 @@
+- become: true
+  hosts: all
+  name: baseline
+  tasks:
+    - name: reset
+      become: true
+      shell: |
+        comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(git\|nftables\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
+    - name: install core packages
+      become: true
+      community.general.pacman:
+        name:
+          - amd-ucode
+          - arch-install-scripts
+          - base
+          - base-devel
+          - git
+          - intel-ucode
+          - pacman-contrib
+          - pacman-mirrorlist
+          - pkgconf
+        state: latest
+    - name: install yay from git
+      become_user: maintenance
+      shell: |
+        yay --version || ( rm -rf yay ; git clone https://aur.archlinux.org/yay.git && \
+        pushd yay && makepkg -si --noconfirm && popd && \
+        rm -rf yay )
+    - name: generate /etc/pacman.conf
+      lineinfile:
+        path: /etc/pacman.conf
+        regex: "{{ item['regex'] }}"
+        line: "{{ item['line'] }}"
+      loop:
+        - regex: ^(# *)?ParallelDownloads
+          line: ParallelDownloads = 16
+        - regex: ^(# *)?Color
+          line: Color
+    - name: system upgrade
+      become_user: maintenance
+      kewlfft.aur.aur:
+        use: yay
+        update_cache: true
+        upgrade: true
+    - name: install baseline packages
+      become_user: maintenance
+      kewlfft.aur.aur:
+        use: yay
+        state: latest
+        name: "{{ item }}"
+      loop:
+        - - ansible
+        # linux headers
+        - - linux-lts
+          - linux-lts-headers
+        # usage stats
+        - - atop
+          - htop
+          - glances
+          - iotop
+          - ncdu
+        # build tools
+        - - autoconf
+          - automake
+          - bazel
+          - cmake
+          - downgrade
+          - yay
+        # zip tools
+        - - bzip2
+          - gzip
+          - tar
+          - unrar
+          - unzip
+          - xz
+          - zip
+          - zlib
+          - zstd
+        # network tools
+        - - curl
+          - ethtool
+          - inetutils
+          - iproute2
+          - iputils
+          - net-tools
+          - nicstat
+          - iperf
+          - tcpdump
+          - wget
+        # file system tools
+        - - fio
+          - fuse3
+          - gptfdisk
+          - lsscsi
+          - lvm2
+          - ntfs-3g
+          - nvme-cli
+          - parted
+          - smartmontools
+        # system tools
+        - - dmidecode
+          - gperftools
+          - hwdata
+          - hwinfo
+          - lm_sensors
+          - lsb-release
+          - lshw
+          - lsof
+          - strace
+          - sysstat
+        # ssh
+        - - openssh
+          - parallel
+          - rsync
+        # ntpd
+        - - openntpd
+        # editors
+        - - file
+          - findutils
+          - gawk
+          - grep
+          - jq
+          - less
+          - man-db
+          - mlocate
+          - nano
+          - patch
+          - pv
+          - sed
+          - vi
+          - vim
+          - which
+          - yq
+        # xorg
+        - - xorg-xauth
+          - xorg-xhost
+          - xorg-xinit
+          - xterm
+        # others
+        - - aur/tuned
+        - - go
+        - - rust
+        - - svn
+    - name: systemd enable dhcpcd.service
+      systemd:
+        name: dhcpcd.service
+        enabled: true
+        state: restarted
+    - name: systemd enable openntpd.service
+      systemd:
+        name: openntpd.service
+        enabled: true
+        state: restarted
+    - name: generate /etc/ssh/sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regex: "{{ item['regex'] }}"
+        line: "{{ item['line'] }}"
+      loop:
+        - regex: ^(# *)?PasswordAuthentication
+          line: PasswordAuthentication no
+        - regex: ^(# *)?PermitRootLogin
+          line: PermitRootLogin no
+        - regex: ^(# *)?X11Forwarding
+          line: X11Forwarding yes
+        - regex: ^(# *)?DenyUsers maintenance
+          line: DenyUsers maintenance@!10.*.*.*,*
+    - name: systemd enable sshd.service
+      systemd:
+        name: sshd.service
+        enabled: true
+        state: restarted
+    - name: Ensure /opt/cache to exist and have correct ownership
+      file:
+        path: /opt/cache
+        state: directory
+        owner: maintenance
+        group: wheel
+        recurse: true
+        mode: u+rw,g+rw,a-w,+s
+    - name: set hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+    - name: generate /etc/hosts
+      template:
+        src: etc/hosts.j2
+        dest: /etc/hosts
+- become: true
+  hosts: all
+  name: security
+  tasks:
+    - name: install fail2ban
+      become_user: maintenance
+      kewlfft.aur.aur:
+        name:
+          - fail2ban
+        state: latest
+    - name: generate /etc/fail2ban/jail.d/sshd.conf
+      template:
+        src: etc/fail2ban/jail.d/sshd.conf.j2
+        dest: /etc/fail2ban/jail.d/sshd.conf
+    - name: systemd enable fail2ban.service
+      systemd:
+        name: fail2ban.service
+        enabled: true
+        state: restarted
+- become: true
+  hosts: zfs
+  name: configure zfs
+  tasks:
+    - name: install zfs
+      become_user: maintenance
+      kewlfft.aur.aur:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - aur/zfs-dkms
+        - - nfs-utils
+          - nfsidmap
+    - name: generate /etc/modules-load.d/zfs.conf
+      template:
+        src: etc/modules-load.d/zfs.conf.j2
+        dest: /etc/modules-load.d/zfs.conf
+    - name: generate /etc/modprobe.d/zfs.conf
+      template:
+        src: etc/modprobe.d/zfs.conf.j2
+        dest: /etc/modprobe.d/zfs.conf
+    - name: modprobe zfs
+      community.general.modprobe:
+        name: zfs
+        state: present
+    - name: configure brick
+      shell:
+        cmd: |
+          zpool status brick || zpool import brick -m
+          zpool upgrade brick
+          zpool set autotrim=on brick
+          zpool set ashift=12 brick
+          zfs set atime=on brick
+          zfs set checksum=blake3 brick
+          zfs set compression=zstd brick
+          zfs set dedup=off brick
+          zfs set dnodesize=auto brick
+          zfs set mountpoint=/brick brick
+          zfs set primarycache=all brick
+          zfs set secondarycache=all brick
+          zfs set recordsize=16M brick
+          zfs set relatime=on brick
+          zfs set redundant_metadata=all brick
+          zfs set sharenfs=on brick
+          zfs set special_small_blocks=1M brick
+          zfs set xattr=sa brick
+    - name: enable zfs services
+      systemd:
+        daemon_reload: true
+        name: "{{ item }}"
+        enabled: true
+        state: restarted
+      loop:
+        - zfs-import-cache.service
+        - zfs-mount.service
+        - zfs-scrub-monthly@brick.timer
+        - zfs-share.service
+        - nfs-server.service
+        - nfsdcld.service
+- become: true
+  hosts: nfs_client
+  name: nfs client
+  tasks:
+    - name: install nfs utils
+      become_user: maintenance
+      kewlfft.aur.aur:
+        name: core/nfs-utils
+        state: latest
+    - name: create nfs mounts
+      mount:
+        fstype: nfs
+        name: "/nfs/{{ item }}"
+        opts: "nfsvers=4,ac,async,bg,lookupcache=pos,max_connect=16,nconnect=16,_netdev,noauto,nofail,timeo=300,rsize=1048576,sharecache,wsize=1048576,x-systemd.automount,x-systemd.mount-timeout=10"
+        src: "{{ item }}:/brick"
+        state: mounted
+      loop: "{{ groups['nfs_server'] }}"
+    - name: softlink /home
+      file:
+        force: true
+        path: "/home"
+        src: "/nfs/node4"
+        state: link
+- become: true
+  hosts: compute
+  name: setup compute
+  tasks:
+    - name: install compute packages
+      become_user: maintenance
+      kewlfft.aur.aur:
+        use: yay
+        update_cache: true
+        name: "{{ item }}"
+        state: latest 
+      loop:
+        - - adobe-source-code-pro-fonts
+          - adobe-source-han-sans-cn-fonts
+          - adobe-source-han-sans-hk-fonts
+          - adobe-source-han-sans-jp-fonts
+          - adobe-source-han-sans-kr-fonts
+          - adobe-source-han-sans-otc-fonts
+          - adobe-source-han-sans-tw-fonts
+          - adobe-source-han-serif-cn-fonts
+          - adobe-source-han-serif-hk-fonts
+          - adobe-source-han-serif-jp-fonts
+          - adobe-source-han-serif-kr-fonts
+          - adobe-source-han-serif-otc-fonts
+          - adobe-source-han-serif-tw-fonts
+          - adobe-source-sans-fonts
+          - adobe-source-serif-fonts
+          - gnu-free-fonts
+        - - ansible
+          - aur/ansible-completion-git
+        - - aws-cli-v2
+          - aur/aws-sam-cli-bin
+        - - bash
+          - bash-completion
+          - aur/bash-complete-alias
+        - - ffmpeg4.4
+          - gstreamer
+          - gst-plugins-base
+          - gst-plugins-base-libs
+          - imagemagick
+        - - firefox
+          - google-chrome
+          - aur/chromedriver
+        - - git
+          - git-lfs
+          - github-cli
+          - aur/git-completion
+        - - aur/miniconda3
+        - - nodejs
+          - aur/nvm
+          - aur/yarn-completion-git
+          - eslint
+          - npm
+          - prettier
+          - yarn
+        - - python
+          - aur/python310
+          - aur/python312
+          - aur/python37
+          - aur/python38
+          - aur/python39
+          - cython
+          - python-black
+          - python-cfn-lint
+          - python-isort
+          - python-pdm
+          - python-pip
+          - python-pylint
+          - python-pylint-ven
+          - python-setuptools
+          - python-six
+          - python-virtualenv
+          - python-wheel
+        - - jdk-openjdk
+          - jre-openjdk
+        - - screen
+        - - sox
+          - libsndfile
+          - mediainfo
+        - - tmux
+          - aur/tmux-bash-completion
+        - - vim
+          - vim-plug
+          - vim-runtime
+        - - zsh
+          - ranger
+          - zsh-autosuggestions
+          - zsh-syntax-highlighting
+          - aur/oh-my-zsh-git
+    - name: install docker packages
+      become_user: maintenance
+      kewlfft.aur.aur:
+        use: yay
+        update_cache: true
+        name:
+          - docker
+          - docker-buildx
+          - docker-compose
+        state: latest 
+    - name: systemd enable docker.sock
+      systemd:
+        name: docker
+        enabled: true
+        state: restarted
+- become: true
+  hosts: nvidia
+  name: setup for nvidia gpu
+  tasks:
+    - name: remove old nvidia driver
+      become_user: root
+      pacman:
+        name:
+          - nvidia
+          - nvidia-lts
+        state: absent
+    - name: install cuda packages
+      become_user: maintenance
+      kewlfft.aur.aur:
+        use: yay 
+        update_cache: true
+        name: "{{ item }}"
+        extra_args: --disable-download-timeout
+        state: latest
+      loop:
+        - - nvidia-settings
+          - nvidia-utils
+          - nvidia-dkms
+        - - cuda
+          - cuda-tools
+          - cudnn
+        - - nvtop
+    - name: modprobe nvidia
+      community.general.modprobe:
+        name: nvidia
+        state: present
+    - name: systemd enable nvidia-persistenced.service
+      systemd:
+        name: nvidia-persistenced.service
+        enabled: true
+        state: restarted
+    - name: install cuda-11 backward compatibility
+      become_user: maintenance
+      kewlfft.aur.aur:
+        use: yay 
+        extra_args: --disable-download-timeout
+        update_cache: true
+        name: "{{ item }}"
+        state: present
+      loop:
+        - aur/cuda-11.7
+        - aur/cuda-11.1
+- become: true
+  hosts: all
+  name: Set up users
+  tasks:
+    - name: Add maintenance user into all superuser groups
+      user:
+        name: maintenance
+        group: maintenance
+        groups:
+          - maintenance
+          - docker
+          - wheel
+        state: present
