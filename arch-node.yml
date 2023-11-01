@@ -87,6 +87,7 @@
           - net-tools
           - nicstat
           - iperf
+          - iperf3
           - tcpdump
           - wget
         # file system tools
