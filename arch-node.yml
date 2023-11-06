@@ -5,7 +5,7 @@
     - name: reset
       become: true
       shell: |
-        comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(git\|nftables\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
+        comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(dhcpcd\|git\|nftables\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
     - name: system upgrade
       become_user: maintenance
       kewlfft.aur.aur:
@@ -27,6 +27,21 @@
           - pacman-mirrorlist
           - pkgconf
         state: latest
+    - name: generate /usr/lib/systemd/system/systemd-networkd-wait-online.service
+      template:
+        src: usr/lib/systemd/system/systemd-networkd-wait-online.service.j2
+        dest: /usr/lib/systemd/system/systemd-networkd-wait-online.service
+    - name: systemd enable dhcpcd.service
+      systemd:
+        name: dhcpcd.service
+        daemon_reload: true
+        enabled: true
+        state: restarted
+    - name: systemd enable systemd-networkd-wait-online.service
+      systemd:
+        name: systemd-networkd-wait-online.service
+        daemon_reload: true
+        enabled: true
     - name: install yay from git
       become_user: maintenance
       shell: |
@@ -144,11 +159,6 @@
         - - go
         - - rust
         - - svn
-    - name: systemd enable dhcpcd.service
-      systemd:
-        name: dhcpcd.service
-        enabled: true
-        state: restarted
     - name: systemd enable openntpd.service
       systemd:
         name: openntpd.service
