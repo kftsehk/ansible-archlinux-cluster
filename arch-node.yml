@@ -426,7 +426,6 @@
           - python-virtualenv
           - python-wheel
         - - jdk-openjdk
-          - jre-openjdk
         - - screen
         - - sox
           - libsndfile
