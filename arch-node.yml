@@ -6,6 +6,12 @@
       become: true
       shell: |
         comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(git\|nftables\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
+    - name: system upgrade
+      become_user: maintenance
+      kewlfft.aur.aur:
+        use: yay
+        update_cache: true
+        upgrade: true
     - name: install core packages
       become: true
       community.general.pacman:
@@ -37,12 +43,6 @@
           line: ParallelDownloads = 16
         - regex: ^(# *)?Color
           line: Color
-    - name: system upgrade
-      become_user: maintenance
-      kewlfft.aur.aur:
-        use: yay
-        update_cache: true
-        upgrade: true
     - name: install baseline packages
       become_user: maintenance
       kewlfft.aur.aur:
