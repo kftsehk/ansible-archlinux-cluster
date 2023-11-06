@@ -433,6 +433,7 @@
           - mediainfo
         - - tmux
           - aur/tmux-bash-completion
+        - - trash-cli
         - - vim
           - vim-plug
           - vim-runtime
