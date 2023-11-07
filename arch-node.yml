@@ -507,15 +507,10 @@
         state: restarted
     - name: install cuda-11 backward compatibility
       become_user: maintenance
-      kewlfft.aur.aur:
-        use: yay 
-        extra_args: --disable-download-timeout
-        update_cache: true
-        name: "{{ item }}"
-        state: present
-      loop:
-        - aur/cuda-11.7
-        - aur/cuda-11.1
+      shell: |
+        # https://github.com/kewlfft/ansible-aur/pull/79
+        # issue that failed sha512 checksum of package
+        yay -Sy aur/cuda-11.1 aur/cuda-11.7
 - become: true
   hosts: all
   name: Set up users
