@@ -124,6 +124,7 @@
           - lsb-release
           - lshw
           - lsof
+          - aur/lsplug
           - strace
           - sysstat
         # ssh
