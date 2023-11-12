@@ -125,6 +125,7 @@
           - lshw
           - lsof
           - aur/lsplug
+          - extra/perf
           - strace
           - sysstat
         # ssh
