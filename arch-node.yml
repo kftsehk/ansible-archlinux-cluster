@@ -42,6 +42,14 @@
           line: ParallelDownloads = 16
         - regex: ^(# *)?Color
           line: Color
+    - name: generate /etc/makepkg.conf
+      lineinfile:
+        path: /etc/makepkg.conf
+        regex: "{{ item['regex'] }}"
+        line: "{{ item['line'] }}"
+      loop:
+        - regex: ^(# *)?MAKEFLAGS
+          line: MAKEFLAGS="-j16"
 - become: true
   hosts: all
   name: network
