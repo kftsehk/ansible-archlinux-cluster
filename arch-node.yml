@@ -354,20 +354,12 @@
         - zfs-scrub-monthly@brick.timer
         - zfs-share.service
         - polkit.service
-        - nfs-utils.service
         - nfs-server.service
         - nfsdcld.service
 - become: true
   hosts: nfs_client
-  name: nfs client
+  name: configure nfs mounts
   tasks:
-    - name: install nfs client utils
-      become_user: maintenance
-      kewlfft.aur.aur:
-        name: "{{ item }}"
-        state: latest
-      loop:
-        - nfs-utils
     - name: create nfs mounts
       mount:
         fstype: nfs
@@ -376,20 +368,19 @@
         src: "{{ item }}:/brick"
         state: mounted
       loop: "{{ groups['nfs_server'] }}"
+    - name: enable zfs / nfs services
+      systemd:
+        daemon_reload: true
+        name: "nfs-{{ item }}.automount"
+        enabled: true
+        state: restarted
+      loop: "{{ groups['nfs_server'] }}"
     - name: softlink /home
       file:
         force: true
         path: "/home"
         src: "/nfs/node4"
         state: link
-    - name: enable nfs client services
-      systemd:
-        daemon_reload: true
-        name: "{{ item }}"
-        enabled: true
-        state: restarted
-      loop:
-        - nfs-utils.service
 - become: true
   hosts: compute
   name: setup compute
