@@ -5,7 +5,7 @@
     - name: reset
       become: true
       shell: |
-        comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(dhcpcd\|git\|nftables\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
+        comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(amd-ucode\|dhcpcd\|git\|intel-ucode\|nftables\|openssh\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
     - name: system upgrade
       become_user: maintenance
       kewlfft.aur.aur:
