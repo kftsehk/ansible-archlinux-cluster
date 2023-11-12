@@ -19,7 +19,7 @@ Before=network-online.target shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/lib/systemd/systemd-networkd-wait-online --ignore=docker0 --timeout 0 -4
+ExecStart=/usr/lib/systemd/systemd-networkd-wait-online --any -4
 RemainAfterExit=yes
 
 [Install]

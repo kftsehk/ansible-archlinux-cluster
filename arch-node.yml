@@ -1,11 +1,11 @@
 - become: true
   hosts: all
-  name: baseline
+  name: arch-minimal
   tasks:
     - name: reset
       become: true
       shell: |
-        comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(amd-ucode\|dhcpcd\|git\|intel-ucode\|nftables\|openssh\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
+        comm -23 <(pacman -Qq | sort) <(pacman -Sql core | sort) | grep -v -e '\(amd-ucode\|git\|intel-ucode\|nftables\|openssh\|yay\)' | xargs pacman -Rsu --noconfirm --nodeps
     - name: system upgrade
       become_user: maintenance
       kewlfft.aur.aur:
@@ -20,28 +20,12 @@
           - arch-install-scripts
           - base
           - base-devel
-          - dhcpcd
           - git
           - intel-ucode
           - pacman-contrib
           - pacman-mirrorlist
           - pkgconf
         state: latest
-    - name: generate /usr/lib/systemd/system/systemd-networkd-wait-online.service
-      template:
-        src: usr/lib/systemd/system/systemd-networkd-wait-online.service.j2
-        dest: /usr/lib/systemd/system/systemd-networkd-wait-online.service
-    - name: systemd enable dhcpcd.service
-      systemd:
-        name: dhcpcd.service
-        daemon_reload: true
-        enabled: true
-        state: restarted
-    - name: systemd enable systemd-networkd-wait-online.service
-      systemd:
-        name: systemd-networkd-wait-online.service
-        daemon_reload: true
-        enabled: true
     - name: install yay from git
       become_user: maintenance
       shell: |
@@ -58,6 +42,73 @@
           line: ParallelDownloads = 16
         - regex: ^(# *)?Color
           line: Color
+- become: true
+  hosts: all
+  name: network
+  tasks:
+    - name: generate /etc/systemd/network/20-wired.network
+      template:
+        src: etc/systemd/network/20-wired.network.j2
+        dest: /etc/systemd/network/20-wired.network
+    - name: generate /etc/systemd/network/21-wireless.network
+      template:
+        src: etc/systemd/network/21-wireless.network.j2
+        dest: /etc/systemd/network/21-wireless.network
+    - name: systemd enable systemd-networkd.service
+      systemd:
+        name: systemd-networkd.service
+        daemon_reload: true
+        enabled: true
+        state: restarted
+    - name: generate /usr/lib/systemd/system/systemd-networkd-wait-online.service
+      template:
+        src: usr/lib/systemd/system/systemd-networkd-wait-online.service.j2
+        dest: /usr/lib/systemd/system/systemd-networkd-wait-online.service
+    - name: systemd enable systemd-networkd-wait-online.service
+      systemd:
+        name: systemd-networkd-wait-online.service
+        daemon_reload: true
+        enabled: true
+    - name: generate /etc/systemd/timesyncd.conf
+      template:
+        src: etc/systemd/timesyncd.conf.j2
+        dest: /etc/systemd/timesyncd.conf
+    - name: systemd enable systemd-timesyncd.service
+      systemd:
+        name: systemd-timesyncd.service
+        daemon_reload: true
+        enabled: true
+        state: restarted
+    - name: set hostname
+      hostname:
+        name: "{{ inventory_hostname }}"
+    - name: generate /etc/hosts
+      template:
+        src: etc/hosts.j2
+        dest: /etc/hosts
+    - name: generate /etc/ssh/sshd_config
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regex: "{{ item['regex'] }}"
+        line: "{{ item['line'] }}"
+      loop:
+        - regex: ^(# *)?PasswordAuthentication
+          line: PasswordAuthentication no
+        - regex: ^(# *)?PermitRootLogin
+          line: PermitRootLogin no
+        - regex: ^(# *)?X11Forwarding
+          line: X11Forwarding yes
+        - regex: ^(# *)?DenyUsers maintenance
+          line: DenyUsers maintenance@!10.*.*.*,*
+    - name: systemd enable sshd.service
+      systemd:
+        name: sshd.service
+        enabled: true
+        state: restarted
+- become: true
+  hosts: all
+  name: baseline
+  tasks:
     - name: install baseline packages
       become_user: maintenance
       kewlfft.aur.aur:
@@ -100,6 +151,7 @@
           - iputils
           - ipv6calc
           - net-tools
+          - extra/networkmanager
           - nicstat
           - iperf
           - iperf3
@@ -159,34 +211,6 @@
         - - go
         - - rust
         - - svn
-    - name: generate /etc/systemd/timesyncd.conf
-      template:
-        src: etc/systemd/timesyncd.conf.j2
-        dest: /etc/systemd/timesyncd.conf
-    - name: systemd enable systemd-timesyncd.service
-      systemd:
-        name: systemd-timesyncd.service
-        enabled: true
-        state: restarted
-    - name: generate /etc/ssh/sshd_config
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regex: "{{ item['regex'] }}"
-        line: "{{ item['line'] }}"
-      loop:
-        - regex: ^(# *)?PasswordAuthentication
-          line: PasswordAuthentication no
-        - regex: ^(# *)?PermitRootLogin
-          line: PermitRootLogin no
-        - regex: ^(# *)?X11Forwarding
-          line: X11Forwarding yes
-        - regex: ^(# *)?DenyUsers maintenance
-          line: DenyUsers maintenance@!10.*.*.*,*
-    - name: systemd enable sshd.service
-      systemd:
-        name: sshd.service
-        enabled: true
-        state: restarted
     - name: Ensure /opt/cache to exist and have correct ownership
       file:
         path: /opt/cache
@@ -195,13 +219,6 @@
         group: wheel
         recurse: true
         mode: u+rw,g+rw,a-w,+s
-    - name: set hostname
-      hostname:
-        name: "{{ inventory_hostname }}"
-    - name: generate /etc/hosts
-      template:
-        src: etc/hosts.j2
-        dest: /etc/hosts
 - become: true
   hosts: all
   name: setup rdma
