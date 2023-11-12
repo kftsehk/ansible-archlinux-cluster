@@ -525,15 +525,11 @@
           - cuda-tools
           - cudnn
         - - nvtop
-    - name: modprobe nvidia
-      community.general.modprobe:
-        name: nvidia
-        state: present
     - name: systemd enable nvidia-persistenced.service
       systemd:
         name: nvidia-persistenced.service
         enabled: true
-        state: restarted
+        state: stopped
     - name: install cuda-11 backward compatibility
       become_user: maintenance
       shell: |
@@ -542,7 +538,7 @@
         yay -Sy aur/cuda-11.1 aur/cuda-11.7
 - become: true
   hosts: all
-  name: Set up users
+  name: set up users
   tasks:
     - name: Add maintenance user into all superuser groups
       user:
