@@ -549,3 +549,12 @@
           - docker
           - wheel
         state: present
+- become: true
+  hosts: all
+  name: reboot
+  tasks:
+    - name: reboot
+      become_user: root
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        connect_timeout: 15
