@@ -532,10 +532,12 @@
         state: stopped
     - name: install cuda-11 backward compatibility
       become_user: maintenance
+      environment:
+        LANG: "en_US.UTF-8"
       shell: |
         # https://github.com/kewlfft/ansible-aur/pull/79
         # issue that failed sha512 checksum of package
-        yay -Sy aur/cuda-11.1 aur/cuda-11.7
+        yay -Sy --noconfirm aur/cuda-11.1 aur/cuda-11.7
 - become: true
   hosts: all
   name: set up users
