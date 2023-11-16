@@ -177,6 +177,7 @@
           - smartmontools
         # system tools
         - - dmidecode
+          - aur/flamegraph
           - gperftools
           - hwdata
           - hwinfo
