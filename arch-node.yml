@@ -392,7 +392,7 @@
         use: yay
         update_cache: true
         name: "{{ item }}"
-        state: latest 
+        state: latest
       loop:
         - - adobe-source-code-pro-fonts
           - adobe-source-han-sans-cn-fonts
@@ -465,6 +465,7 @@
           - aur/tmux-bash-completion
         - - trash-cli
         - - vim
+          - neovim
           - vim-plug
           - vim-runtime
         - - zsh
@@ -481,7 +482,7 @@
           - docker
           - docker-buildx
           - docker-compose
-        state: latest 
+        state: latest
     - name: systemd enable docker service
       systemd:
         name: "{{ item }}"
@@ -504,7 +505,7 @@
     - name: install cuda packages
       become_user: maintenance
       kewlfft.aur.aur:
-        use: yay 
+        use: yay
         update_cache: true
         name: "{{ item }}"
         extra_args: --disable-download-timeout
