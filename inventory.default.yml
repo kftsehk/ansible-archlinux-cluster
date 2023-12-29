@@ -21,3 +21,6 @@ all:
             nvidia:
               hosts:
                 node1:
+``` debug:
+      hosts:
+        node1:

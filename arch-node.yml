@@ -532,6 +532,16 @@
         # issue that failed sha512 checksum of package
         yay -Sy --noconfirm aur/cuda-11.1 aur/cuda-11.7
 - become: true
+  hosts: debug
+  name: setup for debug
+  tasks:
+    - name: sysctl kernel.perf_event_paranoid = -1 for perf
+      sysctl:
+        name: kernel.perf_event_paranoid
+        value: -1
+        state: present
+        reload: yes
+- become: true
   hosts: all
   name: set up users
   tasks:
