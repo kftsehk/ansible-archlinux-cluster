@@ -473,6 +473,9 @@
           - zsh-autosuggestions
           - zsh-syntax-highlighting
           - aur/oh-my-zsh-git
+        - - aur/intel-oneapi-hpckit
+          - aur/nvhpc-22.5
+          - env-modules
     - name: install docker packages
       become_user: maintenance
       kewlfft.aur.aur:
@@ -491,6 +494,27 @@
       loop:
         - docker.socket
         - docker.service
+    - name: Run modulefiles-setup.sh if /opt/intel/modulefiles doesn't exist
+      shell:
+        cmd: |
+          /opt/intel/oneapi/modulefiles-setup.sh --output-dir=/opt/intel/modulefiles
+        creates: /opt/intel/modulefiles
+    - name: Edit intel-oneapi.sh
+      lineinfile:
+        path: /etc/profile.d/intel-oneapi.sh
+        line: "module use /opt/intel/modulefiles"
+    - name: Set vm.nr_hugepages
+      sysctl:
+        name: vm.nr_hugepages
+        value: 2048
+        state: present
+        reload: yes
+    - name: Set vm.nr_overcommit_hugepages
+      sysctl:
+        name: vm.nr_overcommit_hugepages
+        value: 256
+        state: present
+        reload: yes
 - become: true
   hosts: nvidia
   name: setup for nvidia gpu
