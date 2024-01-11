@@ -473,6 +473,9 @@
           - zsh-autosuggestions
           - zsh-syntax-highlighting
           - aur/oh-my-zsh-git
+        - - aur/intel-oneapi-hpckit
+          - aur/nvhpc-22.5
+          - env-modules
     - name: install docker packages
       become_user: maintenance
       kewlfft.aur.aur:
